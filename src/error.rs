@@ -8,3 +8,12 @@ impl std::fmt::Display for Error {
         formatter.write_str("error")
     }
 }
+
+impl serde::ser::Error for Error {
+    fn custom<T>(msg: T) -> Self
+    where
+        T: std::fmt::Display,
+    {
+        Error
+    }
+}
