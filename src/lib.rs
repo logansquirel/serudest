@@ -2,6 +2,7 @@ mod de;
 mod error;
 mod read;
 mod ser;
+mod write;
 
 pub use error::Error;
 
