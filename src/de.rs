@@ -1,26 +1,51 @@
+use crate::read::IoRead;
+use crate::read::Read;
+use crate::read::SliceRead;
+use crate::read::StrRead;
 use crate::Error;
 
 pub struct Deserializer<R> {
     src: R,
 }
 
-pub fn from_str<'a, T>(string: &'a str)
+pub fn from_str<'de, T>(string: &'de str) -> Result<T, Error>
 where
-    T: serde::Deserialize<'a>,
+    T: serde::Deserialize<'de>,
 {
+    let reader = StrRead::new(&string);
+    let mut deserializer = Deserializer::new(reader);
+    let value = T::deserialize(&mut deserializer)?;
+    Ok(value)
 }
 
-pub fn from_bytes<'a, T>(bytes: &'a [u8])
+pub fn from_bytes<'de, T>(bytes: &'de [u8]) -> Result<T, Error>
 where
-    T: serde::Deserialize<'a>,
+    T: serde::Deserialize<'de>,
 {
+    let reader = SliceRead::new(bytes);
+    let mut deserializer = Deserializer::new(reader);
+    let value = T::deserialize(&mut deserializer)?;
+    Ok(value)
 }
 
-pub fn from_reader<'a, R, T>(reader: R)
+pub fn from_reader<R, T>(reader: R) -> Result<T, Error>
 where
-    T: serde::Deserialize<'a>,
+    T: for<'de> serde::Deserialize<'de>,
     R: std::io::Read,
 {
+    let reader = IoRead::new(reader);
+    let mut deserializer = Deserializer::new(reader);
+    let value = T::deserialize(&mut deserializer)?;
+    Ok(value)
+}
+
+impl<R> Deserializer<R>
+where
+    R: Read,
+{
+    pub fn new(reader: R) -> Self {
+        Deserializer { src: reader }
+    }
 }
 
 impl<'de, 'a, R> serde::Deserializer<'de> for &'a mut Deserializer<R> {

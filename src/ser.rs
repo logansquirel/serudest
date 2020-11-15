@@ -1,5 +1,7 @@
+use crate::write::FmtWrite;
+use crate::write::IoWrite;
+use crate::write::Write;
 use crate::Error;
-
 pub struct Serializer<W> {
     dst: W,
 }
@@ -8,7 +10,8 @@ pub fn to_string<T>(value: &T) -> Result<String, Error>
 where
     T: ?Sized + serde::Serialize,
 {
-    let string = String::new();
+    let bytes = to_bytes(value)?;
+    let string = unsafe { String::from_utf8_unchecked(bytes) };
     Ok(string)
 }
 
@@ -16,8 +19,20 @@ pub fn to_bytes<T>(value: &T) -> Result<Vec<u8>, Error>
 where
     T: ?Sized + serde::Serialize,
 {
-    let vec = Vec::new();
+    let mut vec = Vec::new();
+    to_writer(&mut vec, value)?;
     Ok(vec)
+}
+
+pub fn to_formatter<F, T>(formatter: F, value: &T) -> Result<(), Error>
+where
+    F: std::fmt::Write,
+    T: ?Sized + serde::Serialize,
+{
+    let writer = FmtWrite::new(formatter);
+    let mut serializer = Serializer::new(writer);
+    value.serialize(&mut serializer)?;
+    Ok(())
 }
 
 pub fn to_writer<W, T>(writer: W, value: &T) -> Result<(), Error>
@@ -25,12 +40,24 @@ where
     W: std::io::Write,
     T: ?Sized + serde::Serialize,
 {
+    let writer = IoWrite::new(writer);
+    let mut serializer = Serializer::new(writer);
+    value.serialize(&mut serializer)?;
     Ok(())
+}
+
+impl<W> Serializer<W>
+where
+    W: Write,
+{
+    pub fn new(writer: W) -> Self {
+        Serializer { dst: writer }
+    }
 }
 
 impl<'a, W> serde::Serializer for &'a mut Serializer<W>
 where
-    W: std::io::Write,
+    W: Write,
 {
     type Ok = ();
     type Error = Error;
@@ -202,7 +229,7 @@ where
 
 impl<'a, W> serde::ser::SerializeSeq for &'a mut Serializer<W>
 where
-    W: std::io::Write,
+    W: Write,
 {
     type Ok = ();
     type Error = Error;
@@ -220,7 +247,7 @@ where
 }
 impl<'a, W> serde::ser::SerializeTuple for &'a mut Serializer<W>
 where
-    W: std::io::Write,
+    W: Write,
 {
     type Ok = ();
     type Error = Error;
@@ -238,7 +265,7 @@ where
 }
 impl<'a, W> serde::ser::SerializeTupleStruct for &'a mut Serializer<W>
 where
-    W: std::io::Write,
+    W: Write,
 {
     type Ok = ();
     type Error = Error;
@@ -256,7 +283,7 @@ where
 }
 impl<'a, W> serde::ser::SerializeTupleVariant for &'a mut Serializer<W>
 where
-    W: std::io::Write,
+    W: Write,
 {
     type Ok = ();
     type Error = Error;
@@ -274,7 +301,7 @@ where
 }
 impl<'a, W> serde::ser::SerializeMap for &'a mut Serializer<W>
 where
-    W: std::io::Write,
+    W: Write,
 {
     type Ok = ();
     type Error = Error;
@@ -299,7 +326,7 @@ where
 }
 impl<'a, W> serde::ser::SerializeStruct for &'a mut Serializer<W>
 where
-    W: std::io::Write,
+    W: Write,
 {
     type Ok = ();
     type Error = Error;
@@ -321,7 +348,7 @@ where
 }
 impl<'a, W> serde::ser::SerializeStructVariant for &'a mut Serializer<W>
 where
-    W: std::io::Write,
+    W: Write,
 {
     type Ok = ();
     type Error = Error;
